@@ -1,0 +1,14 @@
+- name: "README"
+  content: |
+    Welcome to DungeonFS!
+
+    Getting Started
+    ===============
+    Welcome to excited world of file-system adventuring! There are a few important
+    commands to help get you started:
+
+    ll <arg1>:		Look at passed in argument (or blank for current location)
+    cd <arg1>:		Traverse the directory dungeon
+    cat inventory:		List inventory contents
+- name: "lock"
+  content: ""
