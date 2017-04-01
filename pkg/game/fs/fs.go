@@ -10,6 +10,7 @@ type NodeType int
 const (
 	FileNode NodeType = iota
 	DirNode
+	TempFileNode
 )
 
 type Node interface {
@@ -28,38 +29,11 @@ type Node interface {
 	Entry() fuse.Dirent
 }
 
-type NodeMetaData map[string]interface{}
-
-func (n NodeMetaData) Get(key string) (interface{}, bool) {
-	if val, ok := n[key]; ok {
-		return val, ok
-	}
-	return nil, false
-}
-
-func (n NodeMetaData) GetString(key string) (v string) {
-	if val, ok := n.Get(key); ok {
-		v, ok = val.(string)
-		// TODO: this should either panic or ignore
-		if !ok {
-			panic("No way")
-		}
-	}
-	return
-}
-
-func (n NodeMetaData) GetBytes(key string) (v []byte) {
-	if val, ok := n.Get(key); ok {
-		v, ok = val.([]byte)
-		if !ok {
-			panic("No way")
-		}
-	}
-	return
-}
-
-func (n NodeMetaData) Set(key string, value interface{}) {
-	n[key] = value
+type NodeMetaData interface {
+	Get(string) (interface{}, bool)
+	GetString(string) string
+	GetBytes(string) []byte
+	Set(string, interface{})
 }
 
 type Nodes interface {

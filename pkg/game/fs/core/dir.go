@@ -33,6 +33,8 @@ func (d *Directory) New(t fs.NodeType, name string) fs.Node {
 		return d.NewFile(name)
 	case fs.DirNode:
 		return d.NewDirectory(name)
+	case fs.TempFileNode:
+		return NewFile(name, d.Path())
 	default:
 		panic("idk")
 	}

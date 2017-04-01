@@ -14,7 +14,7 @@ type node struct {
 	name     string
 	mode     os.FileMode
 	path     string
-	metadata fs.NodeMetaData
+	metadata nodeMetaData
 
 	nodes
 }
@@ -26,7 +26,7 @@ func NewNode(name string, mode os.FileMode, path string) node {
 		mode:     mode,
 		path:     filepath.Join(path, name),
 		nodes:    make(nodes),
-		metadata: make(fs.NodeMetaData),
+		metadata: make(nodeMetaData),
 	}
 }
 
@@ -120,4 +120,38 @@ func (n nodes) Delete(key string) {
 
 func (n nodes) Set(key string, node fs.Node) {
 	n[key] = node
+}
+
+type nodeMetaData map[string]interface{}
+
+func (n nodeMetaData) Get(key string) (interface{}, bool) {
+	if val, ok := n[key]; ok {
+		return val, ok
+	}
+	return nil, false
+}
+
+func (n nodeMetaData) GetString(key string) (v string) {
+	if val, ok := n.Get(key); ok {
+		v, ok = val.(string)
+		// TODO: this should either panic or ignore
+		if !ok {
+			panic("No way")
+		}
+	}
+	return
+}
+
+func (n nodeMetaData) GetBytes(key string) (v []byte) {
+	if val, ok := n.Get(key); ok {
+		v, ok = val.([]byte)
+		if !ok {
+			panic("No way")
+		}
+	}
+	return
+}
+
+func (n nodeMetaData) Set(key string, value interface{}) {
+	n[key] = value
 }

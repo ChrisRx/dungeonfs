@@ -3,14 +3,11 @@ package engine
 import (
 	"strings"
 
-	//fusefs "bazil.org/fuse/fs"
-
 	sh "github.com/ChrisRx/dungeonfs/pkg/commands"
 	"github.com/ChrisRx/dungeonfs/pkg/game/assets"
 	"github.com/ChrisRx/dungeonfs/pkg/game/fs"
 )
 
-//func createAction(name string, node fs.Node) fusefs.Node {
 func createAction(name string, node fs.Node) fs.Node {
 	if node.Name() == "door" {
 		if name == "wall" {
@@ -38,20 +35,26 @@ func lookupAction(name string, node fs.Node) fs.Node {
 	switch parseArgs(name) {
 	case "look":
 		desc := node.MetaData().GetString("Description")
-		f := node.New(fs.FileNode, "look")
+		f := node.New(fs.TempFileNode, "look")
 		f.MetaData().Set("Content", sh.Script(sh.Echo(desc)))
 		return f
 	case "sword":
+		var target string
 		for _, f := range node.Children().Files() {
-			commands := []string{
-				sh.Echo("you swing your sword mightily at the %s ...", f.Name()),
-				sh.Command("sleep 1"),
-				sh.Echo("It appeared to have no effect."),
-			}
-			f := node.New(fs.FileNode, "sword")
-			f.MetaData().Set("Content", sh.Script(commands...))
-			return f
+			target = f.Name()
+			break
 		}
+		if target == "" {
+			target = "unknown"
+		}
+		commands := []string{
+			sh.Echo("you swing your sword mightily at the %s ...", target),
+			sh.Command("sleep 1"),
+			sh.Echo("It appeared to have no effect."),
+		}
+		f := node.New(fs.TempFileNode, "sword")
+		f.MetaData().Set("Content", sh.Script(commands...))
+		return f
 	}
 	return nil
 }

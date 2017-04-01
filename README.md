@@ -25,3 +25,10 @@ Since this is running in the background it must be unmounted using the `unmount`
 ```Shell
 bin/dungeonfs unmount <mountpoint>
 ```
+
+# Ideas
+
+- Sound effects possible via aplay
+- NPCs files
+- Using `chown` and `mv` in creative ways to buy/sell or steal
+- NPC/enemy health and other attributes can be determined via file attributes like filesize
