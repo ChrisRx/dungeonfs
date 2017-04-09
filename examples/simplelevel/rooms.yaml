@@ -1,0 +1,29 @@
+dir:Root:
+  description: "A poorly lit hallway proceeds you to the north."
+  adjacent:
+    - north
+  contains:
+    - README
+dir:north:
+  description: "The hallway comes to an abrupt end. A charred wooden door stands before you."
+  adjacent:
+    - door
+dir:door:
+  description: "This room doesn't appear to contain anything special. There is a something suspicious on the wall to the east."
+  adjacent:
+    - empty
+    - east
+  contains:
+    - lock
+  properties:
+    permitted: lock.Content() == key.Content() && lock.Delete() && true
+dir:empty:
+  description: "A completely empty room."
+dir:east:
+  description: "This place sucks ..."
+  contains:
+    - <[TROLL]>
+  properties:
+    hidden: |
+      !node.Parent().Children().Exists("wall") || 
+      node.Parent().MetaData().Set("Description", "You found a small switch on the wall and it opened up a path to the east.")

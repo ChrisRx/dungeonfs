@@ -8,11 +8,13 @@ import (
 )
 
 func createAction(name string, node fs.Node) fs.Node {
+	n := node.New(fs.FileNode, name)
 	// onCreate:
 	if node.Name() == "door" && name == "wall" {
-		node.MetaData().Set("Description", "You found a small switch on the wall and it opened up a path to the east.")
+		n.MetaData().Set("hidden", true)
+		return nil
 	}
-	return node.New(fs.FileNode, name)
+	return n
 }
 
 func lookupAction(name string, node fs.Node) fs.Node {

@@ -60,6 +60,10 @@ func (c *Context) evalCallExpr(e *ast.CallExpr) (*reflect.Value, error) {
 		return nil, err
 	}
 	value := v1.Call(args)
+	if len(value) == 0 {
+		vv := reflect.ValueOf(0)
+		return &vv, nil
+	}
 	PkgLogger.Printf("evalCallExpr: result=%+v\n", value[0])
 	return &value[0], nil
 }
@@ -130,6 +134,20 @@ func (c *Context) evalBinaryExpr(e *ast.BinaryExpr) (*reflect.Value, error) {
 			return &vv, nil
 		}
 		if !v1.Bool() {
+			return v1, nil
+		}
+		v2, err := c.Eval(e.Y)
+		if err != nil {
+			return nil, err
+		}
+		return v2, nil
+	case token.LOR:
+		if !v1.IsValid() {
+			PkgLogger.Printf("isn't valid moving on %+v\n", e.X)
+			vv := reflect.ValueOf(false)
+			return &vv, nil
+		}
+		if v1.Bool() {
 			return v1, nil
 		}
 		v2, err := c.Eval(e.Y)

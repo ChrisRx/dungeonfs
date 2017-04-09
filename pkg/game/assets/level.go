@@ -91,6 +91,7 @@ func (l *Level) AddProperty(node fs.Node, attrName string, v interface{}) error 
 		return err
 	}
 	s := strings.Replace(c, "node", node.Name(), -1)
+	s = strings.Replace(s, "\n", "", -1)
 	t, err := parser.ParseExpr(s)
 	if err != nil {
 		return err
