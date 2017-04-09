@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"bytes"
+	//"reflect"
 
 	"bazil.org/fuse"
 
@@ -11,23 +11,41 @@ import (
 )
 
 type Engine struct {
-	// game.Player
-	// game.State
+	*assets.Level
+	*Player
 }
 
-func NewEngine() *Engine {
-	return &Engine{}
+func NewEngine(r *assets.Resources) *Engine {
+	p := NewPlayer()
+	key := r.GetObject("key")
+	p.Inventory.Add(
+		Item{Name: "key", Content: key.Content()},
+		Item{Name: "bean"},
+		Item{Name: "sword"},
+	)
+	return &Engine{
+		Player: p,
+		Level:  r.Level,
+	}
+}
+
+func (e *Engine) computeProperties(node fs.Node) {
+	if val, ok := e.GetProperties(node.Name()); ok {
+		for k, fn := range val {
+			v, err := fn()
+			if err != nil {
+				panic(err)
+			}
+			assets.SetNodeAttr(node, k, v)
+		}
+	}
 }
 
 func (e *Engine) Access(node fs.Node) error {
-	if node.Name() == "door" {
-		if f, ok := node.Children().Get("lock"); ok && f.IsFile() {
-			if bytes.Compare(f.Content(), assets.Key) == 0 {
-				node.Children().Delete("lock")
-				return nil
-			}
-			return fuse.EPERM
-		}
+	e.computeProperties(node)
+	e.Player.Register(node)
+	if !node.MetaData().GetBool("permitted") {
+		return fuse.EPERM
 	}
 	return nil
 }
@@ -52,18 +70,12 @@ func (e *Engine) Entities(node fs.Node) ([]fuse.Dirent, error) {
 		}
 		return l, nil
 	}
-	// TODO: Inventory will implement fs.Node and have convenient methods to access. will have a global state
-	// added to the new global state container so it will be consistent through the game
-	if _, ok := node.Children().Get(".inventory"); !ok {
-		newDir := node.New(fs.DirNode, ".inventory")
-		newDir.MetaData().Set("Description", "An adventure's bag o' goods")
-		key := newDir.New(fs.FileNode, "key")
-		key.MetaData().Set("Content", assets.Key)
-		newDir.New(fs.FileNode, "bean")
-		newDir.New(fs.FileNode, "sword")
-	}
-	for _, v := range node.Children().Iter() {
-		l = append(l, v.Entry())
+	for _, n := range node.Children().Iter() {
+		e.computeProperties(n)
+		if n.MetaData().GetBool("hidden") {
+			continue
+		}
+		l = append(l, n.Entry())
 	}
 	return l, nil
 }

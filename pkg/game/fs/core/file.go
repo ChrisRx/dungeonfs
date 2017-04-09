@@ -17,8 +17,10 @@ type File struct {
 	node
 }
 
-func NewFile(name string, path string) *File {
-	node := NewNode(name, 0, path)
+//func NewFile(name string, path string) *File {
+func NewFile(name string, parent fs.Node) *File {
+	//node := NewNode(name, 0, path)
+	node := NewNode(name, 0, parent)
 	return &File{node}
 }
 

@@ -1,0 +1,75 @@
+file:README:
+  content: |
+    Welcome to DungeonFS!
+
+    Getting Started
+    ===============
+    Welcome to excited world of file-system adventuring! There are a few important
+    commands to help get you start:
+
+    ll <arg1>:		Look at passed in argument (or blank for current location)
+    cd <arg1>:		Traverse the directory dungeon
+    cat inventory:		List inventory contents
+file:lock:
+  content: "none"
+#item:key:
+file:key:
+  content: |
+    -----BEGIN PRIVATE KEY-----
+    MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAMjSi/S67mqFDGP0
+    +MRBkidG6zenktXMPMcwXCN1WQjHAo4Gcp9GqjH+IVTgBSO7tdz9VxxKAJgSFXqv
+    kWj95QjoT6OTjVk0UXH4t9PV7OU2jn/xnA8pqhg4sxVzbVq9LSB55CsqNpX5IpUu
+    9cUUgiq9rzDBmh4bg1X9fUHufAxbAgMBAAECgYAfARKGeA2y+FOPYxS9B/qOgc5y
+    yzZKN7vybK7s8oMKbd8hGjG8EWbZTQjMV8GzYJmVQq+eOHabA7+5Lz3d3cTsMu5I
+    DSCKGers7AHHQAYQv0P14CxBp5PFY5qewMYB/FITcD/Z25YXlg3ZjwCB3XrQwLnN
+    QB83C1r6lcFi2fdioQJBAPP/Wy39L+Vda7thcRPcQpb4FmpwU+v+Rzpxov5KRq9G
+    38u3BVd0GdSwQWLVDMmvSLy70doGgxJ5p54YPScxCfkCQQDSs31+ftL34+lSXtrx
+    5utBZc34q3UcCOa3twoHTzxGeM4BiYvAcVa+PjdWRaNXz71UBs2GQWWihApZoGk9
+    2X3zAkEAllFwI/ICauTV9Re/6UNeBtIKRUK0gQQjb58Ikm7CA0O/pio38TvGmiCH
+    99JXUX1aa2OukgpG/7/RAvXd3uI4SQJAdHJ2nP6CojX3sWpzHtY8lrwpBZHc+02A
+    FXC3vipwaZJCaF8YOZdqFWJVOvzptZI+VL4dwGFMRnErNzWMdH5LOQJABytqQ8eF
+    qM/JedHdd4l6ADmUA3A3JxF6eQwYUEd7V51f1dKHB7El2nCLPD1lLgWNewYLg5a6
+    eVH4jECLO2OH8Q==
+    -----END PRIVATE KEY-----
+#lock:bob:
+dir:Root:
+  description: "A poorly lit hallway proceeds you to the north."
+  adjacent:
+    - north
+  contains:
+    - README
+dir:north:
+  description: "The hallway comes to an abrupt end. A charred wooden door stands before you."
+  adjacent:
+    - door
+dir:door:
+  description: "This room doesn't appear to contain anything special. There is a something suspicious on the wall to the east."
+  adjacent:
+    - empty
+    - east
+  contains:
+    - lock
+  attributes:
+    permitted: lock.Content() == key.Content() && lock.Delete() && true
+dir:empty:
+  description: "A completely empty room."
+dir:east:
+  description: "This place sucks ..."
+  contains:
+    - <[TROLL]>
+  attributes:
+    hidden: |
+      !node.Parent().Children().Exists("wall")
+file:<[TROLL]>:
+  content: |
+    *
+                           _-------------------_
+         _            _   /                     \
+        | \  __--__  / |  |  Roar! I'm a troll! | 
+        |  \/      \/  |  \                     /
+        \__  \    / __ /   -_  ________________-
+         /   O    -   \     / /
+        |      oo      |    /
+        \ -- ______ -- /  
+         (_  |\||/|  _)
+           --______--

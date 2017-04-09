@@ -1,4 +1,4 @@
-package core
+package eval
 
 import (
 	"github.com/ChrisRx/dungeonfs/pkg/logging"

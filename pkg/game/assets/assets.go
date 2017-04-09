@@ -1,119 +1,167 @@
 package assets
 
 import (
+	"fmt"
 	"io/ioutil"
-	filepath "path"
+	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 
-	fs "github.com/ChrisRx/dungeonfs/pkg/game/fs/core"
+	"github.com/ChrisRx/dungeonfs/pkg/game/fs"
+	"github.com/ChrisRx/dungeonfs/pkg/game/fs/core"
 )
 
-var (
-	Troll = `
-                       _-------------------_
-     _            _   /                     \
-    | \  __--__  / |  |  Roar! I'm a troll! | 
-    |  \/      \/  |  \                     /
-    \__  \    / __ /   -_  ________________-
-     /   O    -   \     / /
-    |      oo      |    /
-    \ -- ______ -- /  
-     (_  |\||/|  _)
-       --______--
-`
-	Key = []byte(`-----BEGIN PRIVATE KEY-----
-MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAMjSi/S67mqFDGP0
-+MRBkidG6zenktXMPMcwXCN1WQjHAo4Gcp9GqjH+IVTgBSO7tdz9VxxKAJgSFXqv
-kWj95QjoT6OTjVk0UXH4t9PV7OU2jn/xnA8pqhg4sxVzbVq9LSB55CsqNpX5IpUu
-9cUUgiq9rzDBmh4bg1X9fUHufAxbAgMBAAECgYAfARKGeA2y+FOPYxS9B/qOgc5y
-yzZKN7vybK7s8oMKbd8hGjG8EWbZTQjMV8GzYJmVQq+eOHabA7+5Lz3d3cTsMu5I
-DSCKGers7AHHQAYQv0P14CxBp5PFY5qewMYB/FITcD/Z25YXlg3ZjwCB3XrQwLnN
-QB83C1r6lcFi2fdioQJBAPP/Wy39L+Vda7thcRPcQpb4FmpwU+v+Rzpxov5KRq9G
-38u3BVd0GdSwQWLVDMmvSLy70doGgxJ5p54YPScxCfkCQQDSs31+ftL34+lSXtrx
-5utBZc34q3UcCOa3twoHTzxGeM4BiYvAcVa+PjdWRaNXz71UBs2GQWWihApZoGk9
-2X3zAkEAllFwI/ICauTV9Re/6UNeBtIKRUK0gQQjb58Ikm7CA0O/pio38TvGmiCH
-99JXUX1aa2OukgpG/7/RAvXd3uI4SQJAdHJ2nP6CojX3sWpzHtY8lrwpBZHc+02A
-FXC3vipwaZJCaF8YOZdqFWJVOvzptZI+VL4dwGFMRnErNzWMdH5LOQJABytqQ8eF
-qM/JedHdd4l6ADmUA3A3JxF6eQwYUEd7V51f1dKHB7El2nCLPD1lLgWNewYLg5a6
-eVH4jECLO2OH8Q==
------END PRIVATE KEY----- `)
+type ResourceType int
+
+const (
+	FileResource ResourceType = iota
+	DirResource
 )
 
-type DirectoryAsset struct {
-	Name        string   `yaml:"name"`
-	Description string   `yaml:"description"`
-	Adjacent    []string `yaml:"adjacent"`
-	Contains    []string `yaml:"contains"`
+type Resource struct {
+	name  string
+	t     ResourceType
+	attrs map[string]interface{}
 }
 
-type FileAsset struct {
-	Name    string `yaml:"name"`
-	Content string `yaml:"content"`
+func (r *Resource) Name() string       { return r.name }
+func (r *Resource) Type() ResourceType { return r.t }
+
+func parseBaseType(s string) (ResourceType, error) {
+	switch s {
+	case "file":
+		return FileResource, nil
+	case "dir":
+		return DirResource, nil
+	}
+	return 0, fmt.Errorf("unable to parse base type")
 }
 
-type Assets struct {
-	Files       map[string]FileAsset
-	Directories map[string]DirectoryAsset
+type Resources struct {
+	resources map[string]*Resource
+	objects   map[string]fs.Node
+	*Level
 }
 
-func NewAssets() *Assets {
-	a := &Assets{
-		Files:       make(map[string]FileAsset),
-		Directories: make(map[string]DirectoryAsset),
+func New() *Resources {
+	a := &Resources{
+		resources: make(map[string]*Resource),
+		objects:   make(map[string]fs.Node),
 	}
 	return a
 }
 
-func LoadAssetsFromFile(folder string) (*fs.Directory, error) {
-	a := NewAssets()
-	return a.LoadAssets(folder)
+func LoadFromFile(folder string) (*core.Directory, error) {
+	r := New()
+	return r.LoadDir(folder)
 }
 
-func (a *Assets) LoadAssets(folder string) (*fs.Directory, error) {
-	data, err := ioutil.ReadFile(filepath.Join(folder, "directories.yaml"))
-	if err != nil {
-		return nil, err
+func (r *Resources) GetObject(key string) fs.Node {
+	if val, ok := r.objects[key]; ok {
+		return val
 	}
-	var dirs []DirectoryAsset
-	err = yaml.Unmarshal([]byte(data), &dirs)
-	if err != nil {
-		return nil, err
-	}
-	for _, d := range dirs {
-		a.Directories[d.Name] = d
-	}
-	data, err = ioutil.ReadFile(filepath.Join(folder, "files.yaml"))
-	if err != nil {
-		return nil, err
-	}
-	var files []FileAsset
-	err = yaml.Unmarshal([]byte(data), &files)
-	if err != nil {
-		return nil, err
-	}
-	for _, f := range files {
-		a.Files[f.Name] = f
-	}
-	root := fs.NewDirectory("Root", "")
-	a.buildLevel(root)
-	return root, nil
+	return nil
 }
 
-func (a *Assets) buildLevel(d *fs.Directory) {
-	if val, ok := a.Directories[d.Name()]; ok {
-		for _, name := range val.Adjacent {
-			if v, ok := a.Directories[name]; ok {
-				newDir := d.NewDirectory(v.Name)
-				newDir.MetaData().Set("Description", v.Description)
-				a.buildLevel(newDir)
-			}
+func parseAttrs(a interface{}) map[string]interface{} {
+	aa, ok := a.(map[interface{}]interface{})
+	if !ok {
+		panic("attrs wrong type")
+	}
+	attrs := make(map[string]interface{})
+	for k, v := range aa {
+		key, ok := k.(string)
+		if !ok {
+			panic("key is not string")
 		}
-		for _, item := range val.Contains {
-			if v, ok := a.Files[item]; ok {
-				f := d.NewFile(v.Name)
-				f.MetaData().Set("Content", []byte(v.Content))
-			}
+		attrs[key] = v
+	}
+	return attrs
+}
+
+func (a *Resources) LoadFile(f string) ([]*Resource, error) {
+	data, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil, err
+	}
+	rs := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(data), &rs)
+	if err != nil {
+		return nil, err
+	}
+	rr := make([]*Resource, 0)
+
+	for k, v := range rs {
+		parts := strings.SplitN(k, ":", 2)
+		if len(parts) != 2 {
+			panic("missing base type")
+		}
+		name := parts[1]
+		rt, err := parseBaseType(parts[0])
+		if err != nil {
+			panic(err)
+		}
+		attrs := parseAttrs(v)
+		r := &Resource{
+			name:  name,
+			t:     rt,
+			attrs: attrs,
+		}
+		rr = append(rr, r)
+		PkgLogger.Printf("r: %+v\n", r)
+	}
+	return rr, nil
+}
+
+var defaultAttrs = map[string]interface{}{
+	"hidden":    false,
+	"permitted": true,
+}
+
+func (r *Resources) LoadDir(folder string) (*core.Directory, error) {
+	assetFiles, err := filepath.Glob(filepath.Join(folder, "*.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range assetFiles {
+		rr, err := r.LoadFile(f)
+		if err != nil {
+			return nil, err
+		}
+		for _, res := range rr {
+			r.resources[res.Name()] = res
 		}
 	}
+	for _, v := range r.resources {
+		switch v.Type() {
+		case DirResource:
+			n := core.NewDirectory(v.Name(), nil)
+			for k, v := range v.attrs {
+				PkgLogger.Printf("Metadata[%s]: %v: %v\n", n.Name(), k, v)
+				n.MetaData().Set(strings.ToLower(k), v)
+			}
+			for k, v := range defaultAttrs {
+				n.MetaData().Set(strings.ToLower(k), v)
+			}
+			r.objects[v.Name()] = n
+		case FileResource:
+			n := core.NewFile(v.Name(), nil)
+			for k, v := range v.attrs {
+				PkgLogger.Printf("Metadata[%s]: %v: %v\n", n.Name(), k, v)
+				n.MetaData().Set(strings.ToLower(k), v)
+			}
+			for k, v := range defaultAttrs {
+				n.MetaData().Set(strings.ToLower(k), v)
+			}
+			r.objects[v.Name()] = n
+		default:
+			// we might not have the type yet
+		}
+	}
+	root := r.GetObject("Root")
+	l := NewLevel(root, r.objects)
+	r.Level = l
+	l.visit(root)
+	return l.Root(), nil
 }

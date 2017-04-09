@@ -1,8 +1,11 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 
 	"bazil.org/fuse"
 
@@ -16,30 +19,55 @@ type node struct {
 	path     string
 	metadata nodeMetaData
 
+	parent fs.Node
 	nodes
 }
 
-func NewNode(name string, mode os.FileMode, path string) node {
-	return node{
+func NewNode(name string, mode os.FileMode, parent fs.Node) node {
+	n := node{
 		inode:    NewInode(),
 		name:     name,
 		mode:     mode,
-		path:     filepath.Join(path, name),
+		parent:   parent,
 		nodes:    make(nodes),
 		metadata: make(nodeMetaData),
 	}
+	if n.parent != nil {
+		n.path = filepath.Join(n.parent.Path(), name)
+	} else {
+		n.path = name
+	}
+	return n
 }
 
 func (n *node) Name() string {
 	return n.name
 }
 
-func (n *node) Path() string {
+func (n *node) Path(args ...string) string {
+	if len(args) > 0 {
+		n.path = args[0]
+	}
 	return n.path
 }
 
 func (n *node) Content() []byte {
 	return n.MetaData().GetBytes("Content")
+}
+
+func (n *node) Parent(args ...fs.Node) fs.Node {
+	if len(args) > 0 {
+		n.parent = args[0]
+	}
+	return n.parent
+}
+
+func (n *node) Delete() bool {
+	if n.parent == nil {
+		return false
+	}
+	n.parent.Children().Delete(n.Name())
+	return true
 }
 
 func (n *node) IsDir() bool {
@@ -57,6 +85,7 @@ func (n *node) Children() fs.Nodes {
 func (n *node) MetaData() fs.NodeMetaData {
 	return n.metadata
 }
+
 func (n *node) Entry() fuse.Dirent {
 	ent := fuse.Dirent{
 		Name: n.Name(),
@@ -96,6 +125,13 @@ func (n nodes) Directories() []fs.Node {
 	return d
 }
 
+func (n nodes) Exists(key string) bool {
+	_, ok := n.Get(key)
+	fmt.Printf("Exists '%s': %t\n", key, ok)
+	fmt.Printf("Exists: '%+v\n", n)
+	return ok
+}
+
 func (n nodes) Files() []fs.Node {
 	f := make([]fs.Node, 0)
 	for _, v := range n.Iter() {
@@ -124,7 +160,12 @@ func (n nodes) Set(key string, node fs.Node) {
 
 type nodeMetaData map[string]interface{}
 
+func (n nodeMetaData) Iter() map[string]interface{} {
+	return n
+}
+
 func (n nodeMetaData) Get(key string) (interface{}, bool) {
+	key = strings.ToLower(key)
 	if val, ok := n[key]; ok {
 		return val, ok
 	}
@@ -133,25 +174,36 @@ func (n nodeMetaData) Get(key string) (interface{}, bool) {
 
 func (n nodeMetaData) GetString(key string) (v string) {
 	if val, ok := n.Get(key); ok {
-		v, ok = val.(string)
-		// TODO: this should either panic or ignore
-		if !ok {
-			panic("No way")
+		switch val.(type) {
+		case string:
+			v = val.(string)
+		case []byte:
+			v = string(val.([]byte))
+		default:
+			panic(fmt.Errorf("expected type 'string' but received type '%s'", reflect.TypeOf(val)))
 		}
 	}
 	return
 }
 
-func (n nodeMetaData) GetBytes(key string) (v []byte) {
+func (n nodeMetaData) GetBool(key string) bool {
 	if val, ok := n.Get(key); ok {
-		v, ok = val.([]byte)
-		if !ok {
-			panic("No way")
+		vv := reflect.ValueOf(val)
+		switch v := vv.Interface().(type) {
+		case int:
+			return v == 0
+		case bool:
+			return v
 		}
 	}
-	return
+	return false
+}
+
+func (n nodeMetaData) GetBytes(key string) []byte {
+	return []byte(n.GetString(key))
 }
 
 func (n nodeMetaData) Set(key string, value interface{}) {
+	key = strings.ToLower(key)
 	n[key] = value
 }

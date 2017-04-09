@@ -20,11 +20,14 @@ type Node interface {
 
 	MetaData() NodeMetaData
 	Name() string
-	Path() string
+	Path(...string) string
 	IsDir() bool
 	IsFile() bool
 	Content() []byte
+	Parent(...Node) Node
 	Children() Nodes
+
+	Delete() bool
 
 	Entry() fuse.Dirent
 }
@@ -32,8 +35,10 @@ type Node interface {
 type NodeMetaData interface {
 	Get(string) (interface{}, bool)
 	GetString(string) string
+	GetBool(string) bool
 	GetBytes(string) []byte
 	Set(string, interface{})
+	Iter() map[string]interface{}
 }
 
 type Nodes interface {
@@ -43,4 +48,6 @@ type Nodes interface {
 	Get(string) (Node, bool)
 	Delete(string)
 	Set(string, Node)
+
+	Exists(string) bool
 }

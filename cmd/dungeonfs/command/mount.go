@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/ChrisRx/dungeonfs/pkg/eval"
 	"github.com/ChrisRx/dungeonfs/pkg/game/assets"
 	"github.com/ChrisRx/dungeonfs/pkg/game/engine"
 	fs "github.com/ChrisRx/dungeonfs/pkg/game/fs/core"
@@ -22,10 +23,9 @@ func NewMountCommand() *cobra.Command {
 		Use: "mount [mountpoint]",
 		Run: runMountCommand,
 	}
-	sc.Flags().BoolP("readonly", "r", false, "")
-	sc.Flags().BoolP("debug", "v", false, "")
+	sc.Flags().CountP("debug", "v", "")
 	sc.Flags().BoolP("daemon", "d", false, "")
-	sc.Flags().StringP("assets", "a", "assets/example", "")
+	sc.Flags().StringP("assets", "a", "examples/simplelevel", "")
 	viper.BindPFlags(sc.Flags())
 	return sc
 }
@@ -54,20 +54,27 @@ func runMountCommand(cmd *cobra.Command, args []string) {
 		ioutil.WriteFile("/tmp/dungeonfs.pid", []byte(pid), 0755)
 		os.Exit(0)
 	}
-	if viper.GetBool("debug") {
+	if viper.GetInt("debug") > 0 {
 		fs.PkgLogger = &logging.DefaultLogger{}
+		engine.PkgLogger = &logging.DefaultLogger{}
+		assets.PkgLogger = &logging.DefaultLogger{}
+		if viper.GetInt("debug") > 1 {
+			eval.PkgLogger = &logging.DefaultLogger{}
+		}
 	}
-	fs.GameEngine = engine.NewEngine()
-	d, err := assets.LoadAssetsFromFile(viper.GetString("assets"))
+	r := assets.New()
+	d, err := r.LoadDir(viper.GetString("assets"))
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fs.GameEngine = engine.NewEngine(r)
+
 	f, err := fs.NewFS(d)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fs.PkgLogger.Printf("READONLY: %t\n", viper.GetBool("readonly"))
-	if err = f.MountAndServe(args[0], viper.GetBool("readonly")); err != nil {
+	if err = f.MountAndServe(args[0], false); err != nil {
 		if _, ok := err.(*fuse.MountpointDoesNotExistError); !ok {
 			err := fuse.Unmount(args[0])
 			if err != nil {

@@ -1,4 +1,4 @@
-package core
+package assets
 
 import (
 	"github.com/ChrisRx/dungeonfs/pkg/logging"

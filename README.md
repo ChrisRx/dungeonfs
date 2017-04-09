@@ -32,3 +32,6 @@ bin/dungeonfs unmount <mountpoint>
 - NPCs files
 - Using `chown` and `mv` in creative ways to buy/sell or steal
 - NPC/enemy health and other attributes can be determined via file attributes like filesize
+- Disambiguate between folder name and traverse (e.g. folder is 'north' but room name is unique to the room)
+- Add `.inventory/map` that can allow the player to view the map.
+  - Directions not made explicit can be enabled by converting the name to a number and then mod that number by the number of directions desired for the map (e.g. 4 for basic cardinal directions north,south,east,west)

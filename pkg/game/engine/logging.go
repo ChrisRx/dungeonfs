@@ -1,4 +1,4 @@
-package core
+package engine
 
 import (
 	"github.com/ChrisRx/dungeonfs/pkg/logging"

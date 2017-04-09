@@ -3,32 +3,16 @@ package engine
 import (
 	"strings"
 
-	sh "github.com/ChrisRx/dungeonfs/pkg/commands"
-	"github.com/ChrisRx/dungeonfs/pkg/game/assets"
+	sh "github.com/ChrisRx/dungeonfs/pkg/exec/template"
 	"github.com/ChrisRx/dungeonfs/pkg/game/fs"
 )
 
 func createAction(name string, node fs.Node) fs.Node {
-	if node.Name() == "door" {
-		if name == "wall" {
-			node.MetaData().Set("Description", "You found a small switch on the wall and it opened up a path to the east.")
-			newDir := node.New(fs.DirNode, "east")
-			newDir.MetaData().Set("Description", "This place sucks")
-			newDir.New(fs.FileNode, "<[TROLL]>").MetaData().Set("Content", []byte(assets.Troll))
-			for _, f := range node.Children().Files() {
-				return f
-			}
-		}
+	// onCreate:
+	if node.Name() == "door" && name == "wall" {
+		node.MetaData().Set("Description", "You found a small switch on the wall and it opened up a path to the east.")
 	}
 	return node.New(fs.FileNode, name)
-}
-
-func parseArgs(s string) string {
-	args := strings.Fields(s)
-	if len(args) > 0 {
-		return args[0]
-	}
-	return s
 }
 
 func lookupAction(name string, node fs.Node) fs.Node {
@@ -57,4 +41,12 @@ func lookupAction(name string, node fs.Node) fs.Node {
 		return f
 	}
 	return nil
+}
+
+func parseArgs(s string) string {
+	args := strings.Fields(s)
+	if len(args) > 0 {
+		return args[0]
+	}
+	return s
 }

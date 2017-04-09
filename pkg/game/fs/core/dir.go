@@ -19,8 +19,8 @@ type Directory struct {
 	// game.Engine
 }
 
-func NewDirectory(name, path string) *Directory {
-	node := NewNode(name, os.ModeDir, path)
+func NewDirectory(name string, parent fs.Node) *Directory {
+	node := NewNode(name, os.ModeDir, parent)
 	d := &Directory{
 		node: node,
 	}
@@ -34,20 +34,20 @@ func (d *Directory) New(t fs.NodeType, name string) fs.Node {
 	case fs.DirNode:
 		return d.NewDirectory(name)
 	case fs.TempFileNode:
-		return NewFile(name, d.Path())
+		return NewFile(name, d)
 	default:
 		panic("idk")
 	}
 }
 
 func (d *Directory) NewDirectory(name string) *Directory {
-	newDir := NewDirectory(name, d.Path())
+	newDir := NewDirectory(name, d)
 	d.Set(name, newDir)
 	return newDir
 }
 
 func (d *Directory) NewFile(name string) *File {
-	newFile := NewFile(name, d.Path())
+	newFile := NewFile(name, d)
 	d.Set(name, newFile)
 	return newFile
 }
@@ -87,7 +87,7 @@ func (d *Directory) Create(ctx context.Context, req *fuse.CreateRequest, resp *f
 func (d *Directory) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
 	PkgLogger.Printf("DirRemove: name=%s, path=%s\n", d.Name(), d.Path())
 	if f, ok := d.Get(req.Name); ok && f.IsFile() {
-		d.Delete(req.Name)
+		d.Children().Delete(req.Name)
 	}
 	return nil
 }
