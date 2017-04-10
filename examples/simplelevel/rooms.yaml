@@ -16,7 +16,12 @@ dir:door:
   contains:
     - lock
   properties:
-    permitted: lock.Content() == key.Content() && lock.Delete() && true
+    permitted: |
+      if lock.Content() == key.Content() {
+        lock.Delete()
+        return true
+      }
+      return false
 dir:empty:
   description: "A completely empty room."
 dir:east:
@@ -25,5 +30,8 @@ dir:east:
     - <[TROLL]>
   properties:
     hidden: |
-      !node.Parent().Children().Exists("wall") || 
-      node.Parent().MetaData().Set("Description", "You found a small switch on the wall and it opened up a path to the east.")
+      if node.Parent().Children().Exists("wall") {
+        node.Parent().MetaData().Set("Description", "You found a small switch on the wall and it opened up a path to the east.")
+        return false
+      }
+      return true

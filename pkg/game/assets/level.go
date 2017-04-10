@@ -2,7 +2,9 @@ package assets
 
 import (
 	"fmt"
+	"go/ast"
 	"go/parser"
+	"go/token"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -77,6 +79,11 @@ func (l *Level) visit(node fs.Node) {
 	}
 }
 
+var srcTmpl = `package main
+func main() {
+	%s
+}`
+
 func (l *Level) AddProperty(node fs.Node, attrName string, v interface{}) error {
 	c, ok := v.(string)
 	if !ok {
@@ -90,14 +97,16 @@ func (l *Level) AddProperty(node fs.Node, attrName string, v interface{}) error 
 	if err != nil {
 		return err
 	}
-	s := strings.Replace(c, "node", node.Name(), -1)
-	s = strings.Replace(s, "\n", "", -1)
-	t, err := parser.ParseExpr(s)
+	src := strings.Replace(c, "node", node.Name(), -1)
+	src = fmt.Sprintf(srcTmpl, src)
+	fset := token.NewFileSet()
+	t, err := parser.ParseFile(fset, "", src, parser.AllErrors)
 	if err != nil {
 		return err
 	}
 	f := func() (*reflect.Value, error) {
-		return ctx.Eval(t)
+		// TODO: find consistent entry point
+		return ctx.Eval(t.Decls[0].(*ast.FuncDecl).Body)
 	}
 	if _, ok := l.properties[node.Name()]; !ok {
 		l.properties[node.Name()] = make(map[string]PropertyFunc)
