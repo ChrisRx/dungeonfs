@@ -1,4 +1,9 @@
-file:README:
+file:item:
+  doc: |
+    item extends the base component type `file` and represents a type
+    that will be used for all in-game items that can be interacted with
+    by the player.
+item:README:
   content: |
     Welcome to DungeonFS!
 
@@ -10,10 +15,9 @@ file:README:
     ll <arg1>:		Look at passed in argument (or blank for current location)
     cd <arg1>:		Traverse the directory dungeon
     cat inventory:		List inventory contents
-file:lock:
+item:lock:
   content: "none"
-#item:key:
-file:key:
+item:key:
   content: |
     -----BEGIN PRIVATE KEY-----
     MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAMjSi/S67mqFDGP0

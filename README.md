@@ -35,3 +35,13 @@ bin/dungeonfs unmount <mountpoint>
 - Disambiguate between folder name and traverse (e.g. folder is 'north' but room name is unique to the room)
 - Add `.inventory/map` that can allow the player to view the map.
   - Directions not made explicit can be enabled by converting the name to a number and then mod that number by the number of directions desired for the map (e.g. 4 for basic cardinal directions north,south,east,west)
+- Level editor using something like [termbox](https://github.com/nsf/termbox-go).  Could also be used to make animations that run when doing certain actions (e.g. looting a chest).
+
+
+
+# TODO
+
+- Expose go stdlib to scripting language: fmt, strings, sync, time, etc
+- Add some builtins for scripting language:
+  - A simple global lock that must be acquired by the fs methods
+- Shell script that can be sourced that provides the recommended settings for commands like `ls` and global variables like `$EXIT` (or possible a function) that helps to exit the file system.  This would have to be run with `source` to work.

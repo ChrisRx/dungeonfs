@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -12,42 +13,70 @@ import (
 	"github.com/ChrisRx/dungeonfs/pkg/game/fs/core"
 )
 
-type ResourceType int
+type ComponentType int
 
 const (
-	FileResource ResourceType = iota
-	DirResource
+	UnknownComponent ComponentType = iota // initial component state is invalid
+	FileComponent                         // file component used to create file entities
+	DirComponent                          // directory component used to create directory entities
+	BaseComponent                         // only able to extend file/dir components
 )
 
-type Resource struct {
+type Component struct {
 	name  string
-	t     ResourceType
+	t     ComponentType
 	attrs map[string]interface{}
+	base  string
+	bases []*Component
 }
 
-func (r *Resource) Name() string       { return r.name }
-func (r *Resource) Type() ResourceType { return r.t }
+func (c *Component) Name() string        { return c.name }
+func (c *Component) Type() ComponentType { return c.t }
+func (c *Component) Base() string        { return c.base }
+func (c *Component) Bases() []*Component { return c.bases }
 
-func parseBaseType(s string) (ResourceType, error) {
+type Components map[string]*Component
+
+func (c Components) LookupBaseType(t string) (*Component, bool) {
+	if val, ok := c[t]; ok {
+		return val, ok
+	}
+	return nil, false
+}
+
+func parseBaseType(s string) ComponentType {
 	switch s {
 	case "file":
-		return FileResource, nil
+		return FileComponent
 	case "dir":
-		return DirResource, nil
+		return DirComponent
+	case "base":
+		return BaseComponent
+	default:
+		return UnknownComponent
 	}
-	return 0, fmt.Errorf("unable to parse base type")
+}
+
+type Entity interface {
+	fs.Node
+}
+
+// defaultAttrs defines attributes inherited by all instances of Entity
+var defaultAttrs = map[string]interface{}{
+	"hidden":    false,
+	"permitted": true,
 }
 
 type Resources struct {
-	resources map[string]*Resource
-	objects   map[string]fs.Node
+	components Components
+	entities   map[string]Entity
 	*Level
 }
 
 func New() *Resources {
 	a := &Resources{
-		resources: make(map[string]*Resource),
-		objects:   make(map[string]fs.Node),
+		components: make(Components),
+		entities:   make(map[string]Entity),
 	}
 	return a
 }
@@ -57,19 +86,22 @@ func LoadFromFile(folder string) (*core.Directory, error) {
 	return r.LoadDir(folder)
 }
 
-func (r *Resources) GetObject(key string) fs.Node {
-	if val, ok := r.objects[key]; ok {
+func (r *Resources) GetObject(key string) Entity {
+	if val, ok := r.entities[key]; ok {
 		return val
 	}
 	return nil
 }
 
 func parseAttrs(a interface{}) map[string]interface{} {
+	attrs := make(map[string]interface{})
+	if a == nil {
+		return attrs
+	}
 	aa, ok := a.(map[interface{}]interface{})
 	if !ok {
-		panic("attrs wrong type")
+		panic(fmt.Errorf("attrs wrong type: '%v'", reflect.TypeOf(a)))
 	}
-	attrs := make(map[string]interface{})
 	for k, v := range aa {
 		key, ok := k.(string)
 		if !ok {
@@ -80,43 +112,35 @@ func parseAttrs(a interface{}) map[string]interface{} {
 	return attrs
 }
 
-func (a *Resources) LoadFile(f string) ([]*Resource, error) {
+func (r *Resources) LoadFile(f string) error {
 	data, err := ioutil.ReadFile(f)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	rs := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(data), &rs)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	rr := make([]*Resource, 0)
-
 	for k, v := range rs {
 		parts := strings.SplitN(k, ":", 2)
 		if len(parts) != 2 {
 			panic("missing base type")
 		}
-		name := parts[1]
-		rt, err := parseBaseType(parts[0])
-		if err != nil {
-			panic(err)
+		c := &Component{
+			name:  parts[1],
+			t:     parseBaseType(parts[0]),
+			attrs: parseAttrs(v),
+			base:  parts[0],
+			bases: make([]*Component, 0),
 		}
-		attrs := parseAttrs(v)
-		r := &Resource{
-			name:  name,
-			t:     rt,
-			attrs: attrs,
+		if _, ok := r.components[c.Name()]; ok {
+			panic(fmt.Errorf("component '%s' already exists"))
 		}
-		rr = append(rr, r)
-		PkgLogger.Printf("r: %+v\n", r)
+		r.components[c.Name()] = c
+		PkgLogger.Printf("RegisteredComponent: %#v\n", c)
 	}
-	return rr, nil
-}
-
-var defaultAttrs = map[string]interface{}{
-	"hidden":    false,
-	"permitted": true,
+	return nil
 }
 
 func (r *Resources) LoadDir(folder string) (*core.Directory, error) {
@@ -125,42 +149,77 @@ func (r *Resources) LoadDir(folder string) (*core.Directory, error) {
 		return nil, err
 	}
 	for _, f := range assetFiles {
-		rr, err := r.LoadFile(f)
-		if err != nil {
+		if err := r.LoadFile(f); err != nil {
 			return nil, err
 		}
-		for _, res := range rr {
-			r.resources[res.Name()] = res
+	}
+	unresolved := make(Components)
+	for k, v := range r.components {
+		if v.Type() == UnknownComponent {
+			unresolved[k] = v
 		}
 	}
-	for _, v := range r.resources {
-		switch v.Type() {
-		case DirResource:
-			n := core.NewDirectory(v.Name(), nil)
-			for k, v := range v.attrs {
-				PkgLogger.Printf("Metadata[%s]: %v: %v\n", n.Name(), k, v)
+	for len(unresolved) > 0 {
+		for k, v := range unresolved {
+			val, ok := r.components.LookupBaseType(v.Base())
+			if !ok {
+				panic(fmt.Errorf("missing base component type '%s'", v.Base()))
+			}
+			c, ok := r.components[k]
+			if !ok {
+				panic(fmt.Errorf("unable to find component '%s'", k))
+			}
+			c.bases = append(c.bases, val)
+			c.t = val.Type()
+			delete(unresolved, k)
+		}
+	}
+	for _, c := range r.components {
+		switch c.Type() {
+		case DirComponent:
+			n := core.NewDirectory(c.Name(), nil)
+			for k, v := range c.attrs {
 				n.MetaData().Set(strings.ToLower(k), v)
 			}
 			for k, v := range defaultAttrs {
 				n.MetaData().Set(strings.ToLower(k), v)
 			}
-			r.objects[v.Name()] = n
-		case FileResource:
-			n := core.NewFile(v.Name(), nil)
-			for k, v := range v.attrs {
-				PkgLogger.Printf("Metadata[%s]: %v: %v\n", n.Name(), k, v)
+			for _, base := range c.Bases() {
+				//PkgLogger.Printf("Extending[%s]: %#v\n", n.Name(), base)
+				for k, v := range base.attrs {
+					if k == "doc" {
+						continue
+					}
+					n.MetaData().Set(strings.ToLower(k), v)
+				}
+			}
+			PkgLogger.Printf("Entity[%s]: %##v\n", n.Name(), n)
+			r.entities[c.Name()] = n
+		case FileComponent:
+			n := core.NewFile(c.Name(), nil)
+			for k, v := range c.attrs {
 				n.MetaData().Set(strings.ToLower(k), v)
 			}
 			for k, v := range defaultAttrs {
 				n.MetaData().Set(strings.ToLower(k), v)
 			}
-			r.objects[v.Name()] = n
+			for _, base := range c.Bases() {
+				//PkgLogger.Printf("Extending[%s]: %#v\n", n.Name(), base)
+				for k, v := range base.attrs {
+					if k == "doc" {
+						continue
+					}
+					n.MetaData().Set(strings.ToLower(k), v)
+				}
+			}
+			PkgLogger.Printf("Entity[%s]: %##v\n", n.Name(), n)
+			r.entities[c.Name()] = n
 		default:
-			// we might not have the type yet
+			panic("something very wrong")
 		}
 	}
 	root := r.GetObject("Root")
-	l := NewLevel(root, r.objects)
+	l := NewLevel(root, r.entities)
 	r.Level = l
 	l.visit(root)
 	return l.Root(), nil

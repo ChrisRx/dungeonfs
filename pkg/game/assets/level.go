@@ -15,18 +15,18 @@ import (
 )
 
 type Level struct {
-	root           fs.Node
-	objects, paths map[string]fs.Node
+	root           Entity
+	objects, paths map[string]Entity
 	properties     map[string]map[string]PropertyFunc
 }
 
 type PropertyFunc func() (*reflect.Value, error)
 
-func NewLevel(root fs.Node, objects map[string]fs.Node) *Level {
+func NewLevel(root Entity, objects map[string]Entity) *Level {
 	return &Level{
 		root:       root,
 		objects:    objects,
-		paths:      make(map[string]fs.Node),
+		paths:      make(map[string]Entity),
 		properties: make(map[string]map[string]PropertyFunc),
 	}
 }
