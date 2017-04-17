@@ -7,7 +7,7 @@ DungeonFS is a FUSE filesystem and dungeon crawling adventure game engine.  This
 # Install
 
 ```Shell
-go get github.com/ChrisRx/dungeonfs...
+go get github.com/ChrisRx/dungeonfs/...
 ```
 
 Note: The demo level is included in the `<project root>/examples/simplelevel` folder, which should be downloaded with the above command. In the future, I will have this included with the static binary so the demo level is accessible without need go installed on the system.
