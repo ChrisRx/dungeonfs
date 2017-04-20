@@ -10,6 +10,7 @@ import (
 	"bazil.org/fuse"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/kardianos/osext"
 
 	"github.com/ChrisRx/dungeonfs/pkg/eval"
 	"github.com/ChrisRx/dungeonfs/pkg/game/assets"
@@ -34,6 +35,9 @@ func runMountCommand(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		log.Fatal("Need mountpoint")
 	}
+	if _, err := os.Stat(viper.GetString("assets")); os.IsNotExist(err) {
+		log.Fatal("Assets not found")
+	}
 	if _, err := os.Stat(args[0]); os.IsNotExist(err) {
 		os.Mkdir(args[0], 0755)
 	}
@@ -41,14 +45,17 @@ func runMountCommand(cmd *cobra.Command, args []string) {
 		opts := []string{
 			"mount",
 			args[0],
+			"-a",
+			viper.GetString("assets"),
 		}
 		if viper.GetBool("debug") {
 			opts = append(opts, "-v")
 		}
-		// TODO: search for executable in CWD and/or PATH
-		// TODO: general improvements, platform-specific handling, etc
-		command := "bin/dungeonfs"
-		cmd := exec.Command(command, opts...)
+		exe, err := osext.Executable()
+		if err != nil {
+			log.Fatal("Unable to determine exectuable path, can't start daemon")
+		}
+		cmd := exec.Command(exe, opts...)
 		cmd.Start()
 		pid := fmt.Sprintf("%d\n", cmd.Process.Pid)
 		ioutil.WriteFile("/tmp/dungeonfs.pid", []byte(pid), 0755)
